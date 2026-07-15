@@ -2059,6 +2059,7 @@ dashboard:
 | I3 | 完善 README（运行说明 + MCP + Dashboard） | [x] | 2026-02-24 | 快速开始+配置说明+MCP配置+Dashboard指南+测试+FAQ |
 | I4 | 清理接口一致性（契约测试补齐） | [x] | 2026-02-24 | VectorStore+Reranker+Evaluator边界测试+83测试全绿 |
 | I5 | 全链路 E2E 验收 | [x] | 2026-02-24 | 1198单元+30e2e通过,ingest/query/evaluate脚本验证 |
+| J1 | Agentic RAG 原子检索工具 | [x] | 2026-07-15 | keyword_search + semantic_search 独立 MCP 工具，单元/集成验证通过 |
 
 ---
 
@@ -2075,7 +2076,8 @@ dashboard:
 | 阶段 G | 6 | 6 | 100% |
 | 阶段 H | 5 | 5 | 100% |
 | 阶段 I | 5 | 5 | 100% |
-| **总计** | **68** | **68** | **100%** |
+| 阶段 J | 1 | 1 | 100% |
+| **总计** | **69** | **69** | **100%** |
 
 
 ---
@@ -3154,6 +3156,30 @@ dashboard:
   - Dashboard 可展示摄取与查询追踪
   - `python scripts/evaluate.py` 输出评估指标
 - **测试方法**：手动全链路走通 + `pytest -q` 全量测试。
+
+---
+
+### J1：Agentic RAG 原子检索工具
+- **目标**：在不改变 `query_knowledge_hub` 混合检索、融合或重排行为的前提下，新增 `keyword_search` 与 `semantic_search` MCP 工具，让客户端 Agent 可以按查询意图自主选择关键词或语义检索路径。
+- **依赖**：D1（QueryProcessor）、D2（DenseRetriever）、D3（SparseRetriever）、E2（ProtocolHandler）、E3（MCP 响应格式）、F1–F3（Trace）。
+- **修改文件**：
+  - `src/mcp_server/tools/retrieval_support.py`（新增：collection 级 retriever 构建、输入校验与统一响应辅助）
+  - `src/mcp_server/tools/keyword_search.py`（新增：BM25-only MCP 工具）
+  - `src/mcp_server/tools/semantic_search.py`（新增：vector-only MCP 工具）
+  - `src/mcp_server/protocol_handler.py`（注册两个原子工具）
+  - `tests/unit/test_keyword_search.py`、`tests/unit/test_semantic_search.py`（新增）
+  - `tests/integration/test_mcp_server.py`（tools/list 工具发现与 schema 验证）
+- **实现要点**：
+  - 两个工具输入均为 `query`（必填）、`top_k`（1–20，默认 5）与可选 `collection`。
+  - `keyword_search` 使用 `QueryProcessor` 提取关键词后调用 `SparseRetriever.retrieve()`；不调用 embedding、fusion 或 reranker。
+  - `semantic_search` 使用解析后的查询和 filters 调用 `DenseRetriever.retrieve()`；不调用 BM25、fusion 或 reranker。
+  - 复用 `ResponseBuilder`、`MCPToolResponse`、`TraceContext` 与 `TraceCollector`；响应 metadata 带 `retrieval_mode`，空结果为正常响应，参数/基础设施错误返回安全的 MCP error。
+- **验收标准**：
+  - `tools/list` 可发现 `keyword_search`、`semantic_search`，二者 schema 均包含 query/top_k/collection 并要求 query。
+  - 关键词工具只初始化/调用 SparseRetriever；语义工具只初始化/调用 DenseRetriever。
+  - 集合、top_k、query 内 filters、trace metadata 和现有引用/结构化响应格式均正确传递。
+  - `query_knowledge_hub` 注册与既有混合检索行为不变。
+- **测试方法**：`pytest -q tests/unit/test_keyword_search.py tests/unit/test_semantic_search.py tests/unit/test_protocol_handler.py tests/integration/test_mcp_server.py`，并使用 stdio MCP JSON-RPC 走通 `initialize → tools/list → tools/call`。
 
 ---
 

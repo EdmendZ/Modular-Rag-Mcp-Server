@@ -207,6 +207,13 @@ def _register_default_tools(protocol_handler: ProtocolHandler) -> None:
     from src.mcp_server.tools.get_document_summary import register_tool as register_summary_tool
     register_summary_tool(protocol_handler)
 
+    # Import and register atomic retrieval tools
+    from src.mcp_server.tools.keyword_search import register_tool as register_keyword_tool
+    register_keyword_tool(protocol_handler)
+
+    from src.mcp_server.tools.semantic_search import register_tool as register_semantic_tool
+    register_semantic_tool(protocol_handler)
+
 
 def create_mcp_server(
     server_name: str,

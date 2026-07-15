@@ -191,14 +191,23 @@ def test_mcp_server_tools_list_stdio() -> None:
     assert tools_response["id"] == 2
     assert "result" in tools_response
     assert "tools" in tools_response["result"]
-    # Should have at least query_knowledge_hub and list_collections tools registered
+    # Should have the existing and atomic retrieval tools registered
     assert isinstance(tools_response["result"]["tools"], list)
-    assert len(tools_response["result"]["tools"]) >= 2
-    
+    assert len(tools_response["result"]["tools"]) >= 4
+
     # Verify registered tools are present
     tool_names = [t["name"] for t in tools_response["result"]["tools"]]
     assert "query_knowledge_hub" in tool_names
     assert "list_collections" in tool_names
+    assert "keyword_search" in tool_names
+    assert "semantic_search" in tool_names
+
+    tool_schemas = {tool["name"]: tool["inputSchema"] for tool in tools_response["result"]["tools"]}
+    for tool_name in ("keyword_search", "semantic_search"):
+        schema = tool_schemas[tool_name]
+        assert schema["required"] == ["query"]
+        assert schema["properties"]["top_k"]["minimum"] == 1
+        assert schema["properties"]["top_k"]["maximum"] == 20
 
 
 # =============================================================================
