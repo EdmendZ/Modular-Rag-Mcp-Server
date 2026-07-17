@@ -199,6 +199,7 @@ def test_mcp_server_tools_list_stdio() -> None:
     tool_names = [t["name"] for t in tools_response["result"]["tools"]]
     assert "query_knowledge_hub" in tool_names
     assert "list_collections" in tool_names
+    assert "list_directory" in tool_names
     assert "keyword_search" in tool_names
     assert "semantic_search" in tool_names
 

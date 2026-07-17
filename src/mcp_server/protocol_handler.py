@@ -203,6 +203,10 @@ def _register_default_tools(protocol_handler: ProtocolHandler) -> None:
     from src.mcp_server.tools.list_collections import register_tool as register_list_tool
     register_list_tool(protocol_handler)
     
+    # Import and register list_directory tool
+    from src.mcp_server.tools.list_directory import register_tool as register_directory_tool
+    register_directory_tool(protocol_handler)
+
     # Import and register get_document_summary tool
     from src.mcp_server.tools.get_document_summary import register_tool as register_summary_tool
     register_summary_tool(protocol_handler)

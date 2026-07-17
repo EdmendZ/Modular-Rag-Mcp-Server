@@ -150,6 +150,7 @@
 | I4 | 清理接口一致性（契约测试补齐） | [x] | 2026-02-24 | VectorStore+Reranker+Evaluator边界测试+83测试全绿 |
 | I5 | 全链路 E2E 验收 | [x] | 2026-02-24 | 1198单元+30e2e通过,ingest/query/evaluate脚本验证 |
 | J1 | Agentic RAG 原子检索工具 | [x] | 2026-07-15 | keyword_search + semantic_search 独立 MCP 工具，单元/集成验证通过 |
+| J2 | Agentic RAG 文档目录发现工具 | [x] | 2026-07-15 | list_directory 只读 MCP 工具，单元/集成/MCP stdio 验证通过 |
 
 ---
 
@@ -166,8 +167,8 @@
 | 阶段 G | 6 | 6 | 100% |
 | 阶段 H | 5 | 5 | 100% |
 | 阶段 I | 5 | 5 | 100% |
-| 阶段 J | 1 | 1 | 100% |
-| **总计** | **69** | **69** | **100%** |
+| 阶段 J | 2 | 2 | 100% |
+| **总计** | **70** | **70** | **100%** |
 
 
 ---
@@ -1270,6 +1271,28 @@
   - 集合、top_k、query 内 filters、trace metadata 和现有引用/结构化响应格式均正确传递。
   - `query_knowledge_hub` 注册与既有混合检索行为不变。
 - **测试方法**：`pytest -q tests/unit/test_keyword_search.py tests/unit/test_semantic_search.py tests/unit/test_protocol_handler.py tests/integration/test_mcp_server.py`，并使用 stdio MCP JSON-RPC 走通 `initialize → tools/list → tools/call`。
+
+---
+
+### J2：Agentic RAG 文档目录发现工具
+- **目标**：增加只读 `list_directory` MCP 工具，使客户端 Agent 在检索或预览前能够发现已成功摄入的文档及其稳定标识。
+- **依赖**：C2（摄入历史）、G2（DocumentManager）、G3（DataService）、E2（ProtocolHandler）、J1（原子检索工具）。
+- **修改文件**：
+  - `src/mcp_server/tools/list_directory.py`（新增：文档目录 MCP 工具）
+  - `src/mcp_server/protocol_handler.py`（注册 list_directory）
+  - `tests/unit/test_list_directory.py`（新增）
+  - `tests/integration/test_mcp_server.py`（tools/list 发现验证）
+- **实现要点**：
+  - 复用 `DataService.list_documents(collection)` 的只读跨存储聚合，不进行任意文件系统遍历或任何写入。
+  - 可选 `collection` 限定范围；空白 collection 为参数错误；空目录为正常成功响应。
+  - 返回 `doc_<source_hash前16位>`、source path、完整 source hash、collection、chunk/image 数量和处理时间，兼容 `get_document_summary` 的 document ID 约定。
+  - 阻塞存储访问通过 `asyncio.to_thread()` 执行，后端异常不泄露底层错误详情。
+- **验收标准**：
+  - `tools/list` 可发现带可选 collection schema 的 `list_directory`。
+  - 可按 collection 列出文档；结果含稳定 document ID 和关键元数据。
+  - 空目录、空 collection 和存储失败均返回符合 MCP 协议的安全结果。
+  - 不修改 DocumentManager、DataService 或任意存储层。
+- **测试方法**：`pytest -q tests/unit/test_list_directory.py tests/unit/test_list_collections.py tests/integration/test_mcp_server.py`，并经 stdio MCP JSON-RPC 调用 `list_directory`。
 
 ---
 
